@@ -15,19 +15,27 @@ class TranslateController {
       response.status(400).send({ message: `${targetLang} not exists` });
     }
 
-    const sentences = textToTranslate.split('.').filter(Boolean).map(text => text.trim());
+    const sentences = textToTranslate.split('.').filter(Boolean).map(text => text.trim() + '.');
 
     const startTime = process.hrtime();
     const translateSentences = await Promise.all(sentences.map(async (sentence) => {
-      if (translator !== null) {
-        const [ { translation_text } ]  = await translator(sentence.trim(), {
-          src_lang: sourceLang,
-          tgt_lang: targetLang,
-        });
-        return translation_text;
-      }
+      const [ { translation_text } ]  = await translator(sentence.trim(), {
+        src_lang: sourceLang,
+        tgt_lang: targetLang,
 
-      return '';
+        // Partial output
+        callback_function: x => {
+          console.log({
+            src_lang: sourceLang,
+            tgt_lang: targetLang,
+            output: translator.tokenizer.decode(x[0].output_token_ids, { skip_special_tokens: true })
+          });
+        }
+      });
+
+      return translation_text;
+
+
     }));
     const endTime = process.hrtime(startTime);
 
@@ -35,7 +43,7 @@ class TranslateController {
 
     response.send({
       src_lang: sourceLang,
-      gt_lang: targetLang,
+      tgt_lang: targetLang,
       time_in_ms: (endTime[0] * 1e9 + endTime[1]) / 1e6,
       original_text: textToTranslate,
       translation_text: translateText
